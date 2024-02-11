@@ -27,7 +27,7 @@ naive_error <- mean(naive_errors$.estimate)
 ```
 
 ```{r}
-error_rates <- c(with_error, without_error, null_error, naive_error)
+error_rates <- c(with_error, without_error, naive_error, null_error)
 
 # Define labels for the bars
 labels <- c("With Error", "Without Error", "Naive Error", "Null Error")
@@ -38,7 +38,7 @@ barplot(error_rates, names.arg = labels, col = "royalblue3", main = "Average Tes
 
 ```{r}
 variable_averages <- colMeans(model_with_vips)
-variable_averages_df <- data.frame(Variable = names(model_with_vips), Importance = column_averages) %>%
+variable_averages_df <- data.frame(Variable = names(model_with_vips), Importance = variable_averages) %>%
   filter(Variable != "X") %>%
   arrange(Importance)
 variable_averages_df <- variable_averages_df[order(variable_averages_df$Importance, decreasing = TRUE), ]
@@ -53,5 +53,3 @@ barplot(rev(variable_averages_df$Importance),
         xlab = "Importance",
         las = 1)
 ```
-
-
