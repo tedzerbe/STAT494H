@@ -1,0 +1,464 @@
+# Front Matter
+
+```{r, message=FALSE, warning=FALSE}
+# Set working directory
+wd <- "C:/Users/malco/Documents/GitHub/STAT494H/" # Change as needed
+
+# Load libraries
+library(tidyverse)
+library(ggcorrplot)
+library(scales)
+
+# Load processed data
+data_processed <- read.csv(paste0(wd, "project/volume/data/processed/processed.csv"))
+```
+
+```{r}
+# View data
+glimpse(data_processed)
+```
+
+```{r}
+# Filter for starters with at least 60 IP for Start_IP_future and Start_IP_past1
+data_qualified <- data_processed %>%
+  filter(Start_IP_future >= 60, Start_IP_past1 >= 60)
+```
+
+# Predictiveness (Past Season)
+
+```{r}
+# Past ERA estimators vs. future ERA-
+vars <- data_qualified %>%
+  select(ERA_Minus_past1, FIP_Minus_past1, xFIP_Minus_past1, SIERA_past1, xERA_past1, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("ERA_Minus_past1", "FIP_Minus_past1", "xFIP_Minus_past1", "SIERA_past1", "xERA_past1", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Corrs Between Past ERA Estimators & Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+
+```{r}
+# ERA-
+correlation <- cor(data_qualified$ERA_Minus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = ERA_Minus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$ERA_Minus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "ERA- Predictiveness",
+       x = "ERA- (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# FIP-
+correlation <- cor(data_qualified$FIP_Minus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = FIP_Minus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$FIP_Minus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "FIP- Predictiveness",
+       x = "FIP- (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# xFIP-
+correlation <- cor(data_qualified$xFIP_Minus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = xFIP_Minus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$xFIP_Minus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "xFIP- Predictiveness",
+       x = "xFIP- (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# SIERA
+correlation <- cor(data_qualified$SIERA_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = SIERA_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$SIERA_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "SIERA Predictiveness",
+       x = "SIERA (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# xERA
+correlation <- cor(data_qualified$xERA_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = xERA_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$xERA_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "xERA Predictiveness",
+       x = "xERA (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# Past rates vs. future ERA-
+vars <- data_qualified %>%
+  select(K_Rate_Plus_past1, BB_Rate_Plus_past1, K_BB_Rate_past1, WHIP_Plus_past1, GB_Rate_past1, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("K_Rate_Plus_past1", "BB_Rate_Plus_past1", "K_BB_Rate_past1", "WHIP_Plus_past1", "GB_Rate_past1", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between Past Rates and Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# K-BB%
+correlation <- cor(data_qualified$K_BB_Rate_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = K_BB_Rate_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$K_BB_Rate_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "K-BB% Predictiveness",
+       x = "K-BB% (Year n)",
+       y = "ERA- (Year n+1)")
+
+# K%+
+correlation <- cor(data_qualified$K_Rate_Plus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = K_Rate_Plus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$K_Rate_Plus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "K%+ Predictiveness",
+       x = "K%+ (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# Past rates vs. future ERA-
+vars <- data_qualified %>%
+  select(Zone_Rate_past1, F_Strike_Rate_past1, CSW_Rate_past1, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("Zone_Rate_past1", "F_Strike_Rate_past1", "CSW_Rate_past1", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between Past Rates and Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# Past arsenal grades vs. future ERA-
+vars <- data_qualified %>%
+  select(Stuff_Plus_past1, Location_Plus_past1, Pitching_Plus_past1, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("Stuff_Plus_past1", "Location_Plus_past1", "Pitching_Plus_past1", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between Past Arsenal Grades and Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# Stuff+
+correlation <- cor(data_qualified$Stuff_Plus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = Stuff_Plus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$Stuff_Plus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Stuff+ Predictiveness",
+       x = "Stuff+ (Year n)",
+       y = "ERA- (Year n+1)")
+
+# Location+
+correlation <- cor(data_qualified$Location_Plus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = Location_Plus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$Location_Plus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Location+ Predictiveness",
+       x = "Location+ (Year n)",
+       y = "ERA- (Year n+1)")
+
+# Pitching+
+correlation <- cor(data_qualified$Pitching_Plus_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = Pitching_Plus_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$Pitching_Plus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Pitching+ Predictiveness",
+       x = "Pitching+ (Year n)",
+       y = "ERA- (Year n+1)")
+```
+
+```{r}
+# Past arsenal grades vs. future ERA-
+vars <- data_qualified %>%
+  select(botStf_past1, botCmd_past1, botOvr_past1, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("botStf_past1", "botCmd_past1", "botOvr_past1", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between Past Arsenal Grades and Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# botStf
+correlation <- cor(data_qualified$botStf_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = botStf_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$botStf_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "botStf Predictiveness",
+       x = "botStf (Year n)",
+       y = "ERA- (Year n+1)")
+
+# botCmd
+correlation <- cor(data_qualified$botCmd_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = botCmd_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$Location_Plus_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "botCmd Predictiveness",
+       x = "botCmd (Year n)",
+       y = "ERA- (Year n+1)")
+
+# botOvr
+correlation <- cor(data_qualified$botOvr_past1, data_qualified$ERA_Minus_future, use = "complete.obs")
+
+ggplot(data_qualified, aes(x = botOvr_past1, y = ERA_Minus_future)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$botOvr_past1, na.rm = TRUE),
+           y = min(data_qualified$ERA_Minus_future, na.rm = TRUE), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "botOvr Predictiveness",
+       x = "botOvr (Year n)",
+       y = "botOvr (Year n+1)")
+```
+
+```{r}
+past_columns <- data_qualified %>%
+  select(contains("past1"), -Start_IP_past1)
+
+correlations <- sapply(past_columns, function(col) {
+  cor(col, data_qualified$ERA_Minus_future, use = "pairwise.complete.obs")
+})
+
+correlation_df <- data.frame(Column = names(correlations), Correlation = correlations)
+correlation_df <- correlation_df[order(-abs(correlation_df$Correlation)), ]
+
+print(correlation_df)
+```
+
+# Predictiveness (Average Past 3 Seasons)
+
+```{r}
+# Past ERA estimators vs. future ERA-
+vars <- data_qualified %>%
+  select(xFIP_Minus_past, SIERA_past, K_Rate_past, K_BB_Rate_past, ERA_Minus_future) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("xFIP_Minus_past", "SIERA_past", "K_Rate_past", "K_BB_Rate_past", "ERA_Minus_future")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Corrs Between Past Metrics & Future ERA-") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+past_columns <- data_qualified %>%
+  select(contains("past"), -contains("past1"), -contains("past2"), -contains("past3"), -Start_IP_past)
+
+correlations <- sapply(past_columns, function(col) {
+  cor(col, data_qualified$ERA_Minus_future, use = "pairwise.complete.obs")
+})
+
+correlation_df <- data.frame(Column = names(correlations), Correlation = correlations)
+correlation_df <- correlation_df[order(-abs(correlation_df$Correlation)), ]
+
+print(correlation_df)
+```
+
+# Predictiveness (All features)
+
+```{r}
+past_columns <- data_qualified %>%
+  select(contains("past"), -contains("Start_IP"))
+
+correlations <- sapply(past_columns, function(col) {
+  cor(col, data_qualified$ERA_Minus_future, use = "pairwise.complete.obs")
+})
+
+correlation_df <- data.frame(Column = names(correlations), Correlation = correlations)
+correlation_df <- correlation_df[order(-abs(correlation_df$Correlation)), ]
+
+print(correlation_df)
+```
+
+# Feature Selection
+
+```{r}
+# Select features
+data_final <- data_processed %>%
+  select(PlayerID, Name, Season_future, Start_IP_future, ERA_Minus_future,
+         Age, Start_IP_past1, xFIP_Minus_past1, SIERA_past1, K_Rate_Plus_past1, K_BB_Rate_past1,
+         botStf_past1, Stuff_Plus_past1, Pitching_Plus_past1)
+  
+# Save data for modeling script
+write.csv(data_final, paste0(wd, "project/volume/data/processed/final.csv"), row.names = FALSE)
+```

@@ -1,0 +1,57 @@
+# Front Matter
+
+```{r, message=FALSE, warning=FALSE}
+# Set working directory
+wd <- "C:/Users/malco/Documents/GitHub/STAT494H/" # Change as needed
+
+# Load libraries
+library(tidyverse)
+
+# Load results
+model_with_errors <- read.csv(paste0(wd, "project/volume/models/model_with_errors.csv"))
+model_without_errors <- read.csv(paste0(wd, "project/volume/models/model_without_errors.csv"))
+null_errors <- read.csv(paste0(wd, "project/volume/models/null_errors.csv"))
+naive_errors <- read.csv(paste0(wd, "project/volume/models/naive_errors.csv"))
+model_with_vips <- read.csv(paste0(wd, "project/volume/plots/model_with_vips.csv"))
+model_without_vips <- read.csv(paste0(wd, "project/volume/plots/model_without_vips.csv"))
+```
+
+# Results
+
+```{r}
+# Calculate average testing error for both models
+with_error <- mean(model_with_errors$.estimate)
+without_error <- mean(model_without_errors$.estimate)
+null_error <- mean(null_errors$.estimate)
+naive_error <- mean(naive_errors$.estimate)
+```
+
+```{r}
+error_rates <- c(with_error, without_error, null_error, naive_error)
+
+# Define labels for the bars
+labels <- c("With Error", "Without Error", "Naive Error", "Null Error")
+
+# Create a bar plot
+barplot(error_rates, names.arg = labels, col = "royalblue3", main = "Average Testing Error Rates", ylab = "Error Rate", xlab = "Error Type")
+```
+
+```{r}
+variable_averages <- colMeans(model_with_vips)
+variable_averages_df <- data.frame(Variable = names(model_with_vips), Importance = column_averages) %>%
+  filter(Variable != "X") %>%
+  arrange(Importance)
+variable_averages_df <- variable_averages_df[order(variable_averages_df$Importance, decreasing = TRUE), ]
+
+par(mar = c(7, 10, 4, 2) + 0.1)
+
+barplot(rev(variable_averages_df$Importance), 
+        horiz = TRUE,
+        names.arg = rev(variable_averages_df$Variable), 
+        col = "royalblue3", 
+        main = "Variable Importance", 
+        xlab = "Importance",
+        las = 1)
+```
+
+

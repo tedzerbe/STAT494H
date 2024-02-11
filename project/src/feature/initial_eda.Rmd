@@ -1,0 +1,927 @@
+# Front Matter
+
+```{r, message=FALSE, warning=FALSE}
+# Set working directory
+wd <- "C:/Users/malco/Documents/GitHub/STAT494H/" # Change as needed
+
+# Load libraries
+library(tidyverse)
+library(ggcorrplot)
+library(scales)
+
+# Load raw data from FanGraphs and Baseball Savant
+fg_data <- read.csv(paste0(wd, "project/volume/data/raw/fangraphs-leaderboards.csv"))
+bs_data_15 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2015.csv"))
+bs_data_16 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2016.csv"))
+bs_data_17 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2017.csv"))
+bs_data_18 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2018.csv"))
+bs_data_19 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2019.csv"))
+bs_data_20 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2020.csv"))
+bs_data_21 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2021.csv"))
+bs_data_22 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2022.csv"))
+bs_data_23 <- read.csv(paste0(wd, "project/volume/data/raw/expected_stats_2023.csv"))
+
+# Combine all Baseball Savant data
+bs_data <- rbind(bs_data_15, bs_data_16, bs_data_17, bs_data_18, bs_data_19, bs_data_20, bs_data_21, bs_data_22, bs_data_23) %>% select(player_id, year, xera) %>% rename(xERA = xera)
+
+# Combine FanGraphs and Baseball Savant data
+all_data <- fg_data %>% left_join(bs_data, by = c("MLBAMID" = "player_id", "Season" = "year"))
+
+# Save data for feature script
+write.csv(all_data, paste0(wd, "project/volume/data/interim/all.csv"), row.names = FALSE)
+```
+
+```{r}
+# View data
+glimpse(all_data)
+```
+```{r}
+# Check for missing values
+colSums(is.na(all_data))
+```
+
+# Univariate Analysis
+
+## Categorical
+
+```{r}
+# Season
+season_counts <- all_data %>%
+  mutate(Season = as.factor(Season)) %>%
+  group_by(Season) %>%
+  summarise(Count = n()) %>%
+  mutate(Proportion = round(Count / sum(Count), 2)) %>%
+  ungroup() %>%
+  arrange(desc(Season))
+
+season_counts
+
+ggplot(data = season_counts, mapping = aes(x = Season, y = Proportion * 100)) +
+  geom_bar(stat = "identity", fill = "royalblue3") +
+  labs(title = "Distribution of Season", y = "Proportion") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# ID
+all_data %>%
+  group_by(PlayerId) %>%
+  summarise(DistinctPlayers = n_distinct(PlayerId)) %>%
+  ungroup() %>%
+  summarise(NumDistinct = sum(DistinctPlayers))
+```
+
+## Quantitative
+
+```{r}
+# Starting Innings
+summary_stats <- all_data %>%
+  summarize(Min = min(Start_IP, na.rm = TRUE),
+            Q1 = quantile(Start_IP, 0.25, na.rm = TRUE),
+            Median = median(Start_IP, na.rm = TRUE),
+            Q3 = quantile(Start_IP, 0.75, na.rm = TRUE),
+            Max = max(Start_IP, na.rm = TRUE),
+            Mean = mean(Start_IP, na.rm = TRUE),
+            SD = sd(Start_IP, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = Start_IP)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "StartIP", y = "Count", title = "Distribution of Innings Pitched (Starters)") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# Age
+summary_stats <- all_data %>%
+  summarize(Min = min(Age, na.rm = TRUE),
+            Q1 = quantile(Age, 0.25, na.rm = TRUE),
+            Median = median(Age, na.rm = TRUE),
+            Q3 = quantile(Age, 0.75, na.rm = TRUE),
+            Max = max(Age, na.rm = TRUE),
+            Mean = mean(Age, na.rm = TRUE),
+            SD = sd(Age, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = Age)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF", bins = 28) +
+  scale_x_continuous(breaks = seq(20, 45, by = 5)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "Age", y = "Count", title = "Distribution of Age") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# ERA and ERA-
+summary_stats <- all_data %>%
+  summarize(Min = min(ERA, na.rm = TRUE),
+            Q1 = quantile(ERA, 0.25, na.rm = TRUE),
+            Median = median(ERA, na.rm = TRUE),
+            Q3 = quantile(ERA, 0.75, na.rm = TRUE),
+            Max = max(ERA, na.rm = TRUE),
+            Mean = mean(ERA, na.rm = TRUE),
+            SD = sd(ERA, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = ERA)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "ERA", y = "Count", title = "Distribution of Earned Run Average") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+summary_stats <- all_data %>%
+  summarize(Min = min(ERA_Minus, na.rm = TRUE),
+            Q1 = quantile(ERA_Minus, 0.25, na.rm = TRUE),
+            Median = median(ERA_Minus, na.rm = TRUE),
+            Q3 = quantile(ERA_Minus, 0.75, na.rm = TRUE),
+            Max = max(ERA_Minus, na.rm = TRUE),
+            Mean = mean(ERA_Minus, na.rm = TRUE),
+            SD = sd(ERA_Minus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = ERA_Minus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "ERA-", y = "Count", title = "Distribution of Earned Run Average Minus") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# FIP and FIP-
+summary_stats <- all_data %>%
+  summarize(Min = min(FIP, na.rm = TRUE),
+            Q1 = quantile(FIP, 0.25, na.rm = TRUE),
+            Median = median(FIP, na.rm = TRUE),
+            Q3 = quantile(FIP, 0.75, na.rm = TRUE),
+            Max = max(FIP, na.rm = TRUE),
+            Mean = mean(FIP, na.rm = TRUE),
+            SD = sd(FIP, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = FIP)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "FIP", y = "Count", title = "Distribution of Fielding Independent Pitching") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+summary_stats <- all_data %>%
+  summarize(Min = min(FIP_Minus, na.rm = TRUE),
+            Q1 = quantile(FIP_Minus, 0.25, na.rm = TRUE),
+            Median = median(FIP_Minus, na.rm = TRUE),
+            Q3 = quantile(FIP_Minus, 0.75, na.rm = TRUE),
+            Max = max(FIP_Minus, na.rm = TRUE),
+            Mean = mean(FIP_Minus, na.rm = TRUE),
+            SD = sd(FIP_Minus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = FIP_Minus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "FIP-", y = "Count", title = "Distribution of Fielding Independent Pitching Minus") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# xFIP and xFIP-
+summary_stats <- all_data %>%
+  summarize(Min = min(xFIP, na.rm = TRUE),
+            Q1 = quantile(xFIP, 0.25, na.rm = TRUE),
+            Median = median(xFIP, na.rm = TRUE),
+            Q3 = quantile(xFIP, 0.75, na.rm = TRUE),
+            Max = max(xFIP, na.rm = TRUE),
+            Mean = mean(xFIP, na.rm = TRUE),
+            SD = sd(xFIP, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = xFIP)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "xFIP", y = "Count", title = "Distribution of Expected Fielding Independent Pitching") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+summary_stats <- all_data %>%
+  summarize(Min = min(xFIP_Minus, na.rm = TRUE),
+            Q1 = quantile(xFIP_Minus, 0.25, na.rm = TRUE),
+            Median = median(xFIP_Minus, na.rm = TRUE),
+            Q3 = quantile(xFIP_Minus, 0.75, na.rm = TRUE),
+            Max = max(xFIP_Minus, na.rm = TRUE),
+            Mean = mean(xFIP_Minus, na.rm = TRUE),
+            SD = sd(xFIP_Minus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = xFIP_Minus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "xFIP-", y = "Count", title = "Distribution of Expected Fielding Independent Pitching Minus") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# SIERA
+summary_stats <- all_data %>%
+  summarize(Min = min(SIERA, na.rm = TRUE),
+            Q1 = quantile(SIERA, 0.25, na.rm = TRUE),
+            Median = median(SIERA, na.rm = TRUE),
+            Q3 = quantile(SIERA, 0.75, na.rm = TRUE),
+            Max = max(SIERA, na.rm = TRUE),
+            Mean = mean(SIERA, na.rm = TRUE),
+            SD = sd(SIERA, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = SIERA)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "SIERA", y = "Count", title = "Distribution of Skill-Interactive Earned Run Average") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# xERA
+summary_stats <- all_data %>%
+  summarize(Min = min(xERA, na.rm = TRUE),
+            Q1 = quantile(xERA, 0.25, na.rm = TRUE),
+            Median = median(xERA, na.rm = TRUE),
+            Q3 = quantile(xERA, 0.75, na.rm = TRUE),
+            Max = max(xERA, na.rm = TRUE),
+            Mean = mean(xERA, na.rm = TRUE),
+            SD = sd(xERA, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = xERA)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "xERA", y = "Count", title = "Distribution of Expected Earned Run Average") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# K%, BB%, K-BB%
+summary_stats <- all_data %>%
+  summarize(Min = min(K_Rate, na.rm = TRUE),
+            Q1 = quantile(K_Rate, 0.25, na.rm = TRUE),
+            Median = median(K_Rate, na.rm = TRUE),
+            Q3 = quantile(K_Rate, 0.75, na.rm = TRUE),
+            Max = max(K_Rate, na.rm = TRUE),
+            Mean = mean(K_Rate, na.rm = TRUE),
+            SD = sd(K_Rate, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = K_Rate)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "K%", y = "Count", title = "Distribution of Strikeout Percentage") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+summary_stats <- all_data %>%
+  summarize(Min = min(BB_Rate, na.rm = TRUE),
+            Q1 = quantile(BB_Rate, 0.25, na.rm = TRUE),
+            Median = median(BB_Rate, na.rm = TRUE),
+            Q3 = quantile(BB_Rate, 0.75, na.rm = TRUE),
+            Max = max(BB_Rate, na.rm = TRUE),
+            Mean = mean(BB_Rate, na.rm = TRUE),
+            SD = sd(BB_Rate, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = BB_Rate)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "BB%", y = "Count", title = "Distribution of Walk Percentage") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+summary_stats <- all_data %>%
+  summarize(Min = min(K_BB_Rate, na.rm = TRUE),
+            Q1 = quantile(K_BB_Rate, 0.25, na.rm = TRUE),
+            Median = median(K_BB_Rate, na.rm = TRUE),
+            Q3 = quantile(K_BB_Rate, 0.75, na.rm = TRUE),
+            Max = max(K_BB_Rate, na.rm = TRUE),
+            Mean = mean(K_BB_Rate, na.rm = TRUE),
+            SD = sd(K_BB_Rate, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = K_BB_Rate)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "K-BB%", y = "Count", title = "Distribution of Strikeout to Walk Ratio") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# GB%
+summary_stats <- all_data %>%
+  summarize(Min = min(GB_Rate, na.rm = TRUE),
+            Q1 = quantile(GB_Rate, 0.25, na.rm = TRUE),
+            Median = median(GB_Rate, na.rm = TRUE),
+            Q3 = quantile(GB_Rate, 0.75, na.rm = TRUE),
+            Max = max(GB_Rate, na.rm = TRUE),
+            Mean = mean(GB_Rate, na.rm = TRUE),
+            SD = sd(GB_Rate, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = GB_Rate)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "GB%", y = "Count", title = "Distribution of Ground Ball Rate") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# WHIP
+summary_stats <- all_data %>%
+  summarize(Min = min(WHIP, na.rm = TRUE),
+            Q1 = quantile(WHIP, 0.25, na.rm = TRUE),
+            Median = median(WHIP, na.rm = TRUE),
+            Q3 = quantile(WHIP, 0.75, na.rm = TRUE),
+            Max = max(WHIP, na.rm = TRUE),
+            Mean = mean(WHIP, na.rm = TRUE),
+            SD = sd(WHIP, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = WHIP)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "WHIP", y = "Count", title = "Distribution of Walks and Hits per Inning Pitched") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# CSW
+summary_stats <- all_data %>%
+  summarize(Min = min(CSW_Rate, na.rm = TRUE),
+            Q1 = quantile(CSW_Rate, 0.25, na.rm = TRUE),
+            Median = median(CSW_Rate, na.rm = TRUE),
+            Q3 = quantile(CSW_Rate, 0.75, na.rm = TRUE),
+            Max = max(CSW_Rate, na.rm = TRUE),
+            Mean = mean(CSW_Rate, na.rm = TRUE),
+            SD = sd(CSW_Rate, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = CSW_Rate)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10), labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "CSW%", y = "Count", title = "Distribution of Called Strikes Plus Whiffs Rate") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# Fastball Velocity
+summary_stats <- all_data %>%
+  summarize(Min = min(vFA, na.rm = TRUE),
+            Q1 = quantile(vFA, 0.25, na.rm = TRUE),
+            Median = median(vFA, na.rm = TRUE),
+            Q3 = quantile(vFA, 0.75, na.rm = TRUE),
+            Max = max(vFA, na.rm = TRUE),
+            Mean = mean(vFA, na.rm = TRUE),
+            SD = sd(vFA, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = vFA)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "vFA", y = "Count", title = "Distribution of Fastball Velocity") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# Stuff+
+summary_stats <- all_data %>%
+  summarize(Min = min(Stuff_Plus, na.rm = TRUE),
+            Q1 = quantile(Stuff_Plus, 0.25, na.rm = TRUE),
+            Median = median(Stuff_Plus, na.rm = TRUE),
+            Q3 = quantile(Stuff_Plus, 0.75, na.rm = TRUE),
+            Max = max(Stuff_Plus, na.rm = TRUE),
+            Mean = mean(Stuff_Plus, na.rm = TRUE),
+            SD = sd(Stuff_Plus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = Stuff_Plus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "Stuff+", y = "Count", title = "Distribution of Stuff+") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# Location+
+summary_stats <- all_data %>%
+  summarize(Min = min(Location_Plus, na.rm = TRUE),
+            Q1 = quantile(Location_Plus, 0.25, na.rm = TRUE),
+            Median = median(Location_Plus, na.rm = TRUE),
+            Q3 = quantile(Location_Plus, 0.75, na.rm = TRUE),
+            Max = max(Location_Plus, na.rm = TRUE),
+            Mean = mean(Location_Plus, na.rm = TRUE),
+            SD = sd(Location_Plus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = Location_Plus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "Location+", y = "Count", title = "Distribution of Location+") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# Pitching+
+summary_stats <- all_data %>%
+  summarize(Min = min(Pitching_Plus, na.rm = TRUE),
+            Q1 = quantile(Pitching_Plus, 0.25, na.rm = TRUE),
+            Median = median(Pitching_Plus, na.rm = TRUE),
+            Q3 = quantile(Pitching_Plus, 0.75, na.rm = TRUE),
+            Max = max(Pitching_Plus, na.rm = TRUE),
+            Mean = mean(Pitching_Plus, na.rm = TRUE),
+            SD = sd(Pitching_Plus, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = Pitching_Plus)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "Pitching+", y = "Count", title = "Distribution of Pitching+") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# botStf
+summary_stats <- all_data %>%
+  summarize(Min = min(botStf, na.rm = TRUE),
+            Q1 = quantile(botStf, 0.25, na.rm = TRUE),
+            Median = median(botStf, na.rm = TRUE),
+            Q3 = quantile(botStf, 0.75, na.rm = TRUE),
+            Max = max(botStf, na.rm = TRUE),
+            Mean = mean(botStf, na.rm = TRUE),
+            SD = sd(botStf, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = botStf)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "botStf", y = "Count", title = "Distribution of botStf") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# botCmd
+summary_stats <- all_data %>%
+  summarize(Min = min(botCmd, na.rm = TRUE),
+            Q1 = quantile(botCmd, 0.25, na.rm = TRUE),
+            Median = median(botCmd, na.rm = TRUE),
+            Q3 = quantile(botCmd, 0.75, na.rm = TRUE),
+            Max = max(botCmd, na.rm = TRUE),
+            Mean = mean(botCmd, na.rm = TRUE),
+            SD = sd(botCmd, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = botCmd)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "botCmd", y = "Count", title = "Distribution of botCmd") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+```{r}
+# botOvr
+summary_stats <- all_data %>%
+  summarize(Min = min(botOvr, na.rm = TRUE),
+            Q1 = quantile(botOvr, 0.25, na.rm = TRUE),
+            Median = median(botOvr, na.rm = TRUE),
+            Q3 = quantile(botOvr, 0.75, na.rm = TRUE),
+            Max = max(botOvr, na.rm = TRUE),
+            Mean = mean(botOvr, na.rm = TRUE),
+            SD = sd(botOvr, na.rm = TRUE))
+
+ggplot(data = all_data, mapping = aes(x = botOvr)) +
+  geom_histogram(fill = "royalblue3", color = "#FFFFFF") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(labels = scales::comma) +
+  geom_text(
+    data = summary_stats,
+    aes(x = Inf, y = Inf, label = paste(
+      "Min:", round(Min, 2), "\n",
+      "Q1:", round(Q1, 2), "\n",
+      "Median:", round(Median, 2), "\n",
+      "Q3:", round(Q3, 2), "\n",
+      "Max:", round(Max, 2), "\n",
+      "Mean:", round(Mean, 2), "\n",
+      "SD:", round(SD, 2))), hjust = 1.1, vjust = 1.1) +
+  labs(x = "botOvr", y = "Count", title = "Distribution of botOvr") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+
+# Bivariate Analysis
+
+```{r}
+# Make data frame with only starters with at least 60 IP
+data_qualified <- all_data %>%
+  filter(Start_IP >= 60)
+```
+
+```{r}
+# ERA indicators correlation with ERA-
+vars <- data_qualified %>%
+  select(FIP_Minus, xFIP_Minus, SIERA, xERA, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("FIP_Minus", "xFIP_Minus", "SIERA", "xERA", "ERA_Minus")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA- and ERA Estimators") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# FIP- vs. ERA-
+correlation <- cor(data_qualified$FIP_Minus, data_qualified$ERA_Minus)
+
+ggplot(data_qualified, aes(x = FIP_Minus, y = ERA_Minus)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$FIP_Minus), y = min(data_qualified$ERA_Minus), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Relationship Between FIP- and ERA-",
+       x = "FIP-",
+       y = "ERA-")
+```
+
+```{r}
+# Important rates correlation with ERA-
+vars <- data_qualified %>%
+  select(K_Rate_Plus, BB_Rate_Plus, K_BB_Rate, WHIP_Plus, GB_Rate_Plus, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("K_Rate_Plus", "BB_Rate_Plus", "K_BB_Rate", "WHIP_Plus", "GB_Rate_Plus", "ERA_Minus")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA- and Rates  (Same Season)") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# More important rates correlation with ERA-
+vars <- data_qualified %>%
+  select(Zone_Rate, F_Strike_Rate, CSW_Rate, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("Zone_Rate", "F_Strike_Rate", "CSW_Rate", "ERA_Minus")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA- and Rates") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# Arsenal grades correlation with ERA-
+vars <- data_qualified %>%
+  select(Stuff_Plus, Location_Plus, Pitching_Plus, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("Stuff_Plus", "Location_Plus", "Pitching_Plus", "ERA_Minus")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA- and Arsenal Grades") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# Pitching+ vs. ERA-
+correlation <- cor(data_qualified$Pitching_Plus, data_qualified$ERA_Minus)
+
+ggplot(data_qualified, aes(x = Pitching_Plus, y = ERA_Minus)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$Pitching_Plus), y = min(data_qualified$ERA_Minus), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Relationship Between Pitching+ and ERA-",
+       x = "Pitching+",
+       y = "ERA-")
+```
+
+```{r}
+# Arsenal grades correlation with ERA-
+vars <- data_qualified %>%
+  select(botStf, botCmd, botOvr, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("botStf", "botCmd", "botOvr", "ERA_Minus")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA- and Arsenal Grades") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# botOvr vs. ERA-
+correlation <- cor(data_qualified$botOvr, data_qualified$ERA_Minus)
+
+ggplot(data_qualified, aes(x = botOvr, y = ERA_Minus)) +
+  geom_point(color = "royalblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red2") +
+  scale_x_continuous(breaks = pretty_breaks(n = 10)) +
+  scale_y_continuous(breaks = pretty_breaks(n = 10)) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  annotate("text", x = max(data_qualified$botOvr), y = min(data_qualified$ERA_Minus), 
+           label = paste("Correlation:", round(correlation, 2)), hjust = 1, vjust = 0) +
+  labs(title = "Relationship Between botOvr and ERA-",
+       x = "botOvr",
+       y = "ERA-")
+```
+
+```{r}
+# Correlations between arsenal grades
+vars <- data_qualified %>%
+  select(vFA, Stuff_Plus, botStf, Location_Plus, botCmd, Pitching_Plus, botOvr, ERA_Minus) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("vFA", "Stuff_Plus", "botStf", "Location_Plus", "botCmd", "Pitching_Plus", "botOvr")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between Arsenal Grades") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+```{r}
+# ERA indicators correlation with arsenal grades
+vars <- data_qualified %>%
+  select(FIP_Minus, xFIP_Minus, SIERA, xERA, ERA_Minus, Stuff_Plus, botStf, Location_Plus, botCmd, Pitching_Plus, botOvr) %>%
+  drop_na()
+
+cor_matrix <- cor(vars)
+
+desired_order <- c("FIP_Minus", "xFIP_Minus", "SIERA", "xERA", "ERA_Minus", "Stuff_Plus", "botStf", "Location_Plus", "botCmd", "Pitching_Plus", "botOvr")
+
+cor_matrix_ordered <- cor_matrix[desired_order, desired_order]
+
+ggcorrplot(cor_matrix_ordered, type = "lower", colors = c("royalblue3", "#FFFFFF", "red2"), lab = TRUE) +
+  ggtitle("Correlations Between ERA Estimators & Arsenal Grades") +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
